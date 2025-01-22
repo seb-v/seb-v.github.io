@@ -429,7 +429,6 @@ The pseudo code for our new kernel:
 
 {% endhighlight %}
 
-Full kernel source code can be found [here]()
 
 
 The performance for this kernel is 6.03 ms (22777 GFlops/s), 5 times faster than our previous kernel !
