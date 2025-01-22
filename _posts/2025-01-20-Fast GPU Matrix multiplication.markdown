@@ -9,7 +9,7 @@ categories: optimization update
 
 Hi everyone ! 
 
-In this post, I will share with you all the steps to write an optimized FP32 matrix multiplication on AMD GPU outperforming ROCBlas by 60%. I will cover some basics and explain all the optimizations I have implemented. This will be done in a iterative way in 8 differents Kernels. 
+In this post, I will share with you all the steps to write an optimized FP32 matrix multiplication on AMD GPU outperforming rocBLAS by 60%. I will cover some basics and explain all the optimizations I have implemented. This will be done in a iterative way in 8 differents Kernels. 
 
 <div style="text-align: center;">
   <img src="/assets/images/graph0.jpg" alt="Alt text" />
