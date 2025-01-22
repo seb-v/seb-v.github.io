@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+<!-- HTML Meta Tags -->
+<title>Deep Dive into Matrix Optimization on AMD GPUs</title>
+<meta name="description" content="Writing Super-Fast Matrix Multiplication with HIP, RGP, and ISA">
+
+<!-- Facebook Meta Tags -->
+<meta property="og:url" content="https://seb-v.github.io/optimization/update/2025/01/12/Fast-GPU-Matrix-multiplication.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Deep Dive into Matrix Optimization on AMD GPUs: ">
+<meta property="og:description" content="Writing Super-Fast Matrix Multiplication with HIP, RGP, and ISA">
+<meta property="og:image" content="https://seb-v.github.io/assets/images/facebook.jpg">
+
+<!-- Twitter Meta Tags -->
+<meta name="twitter:card" content="summary_large_image">
+<meta property="twitter:domain" content="seb-v.github.io">
+<meta property="twitter:url" content="https://seb-v.github.io/optimization/update/2025/01/12/Fast-GPU-Matrix-multiplication.html">
+<meta name="twitter:title" content="Deep Dive into Matrix Optimization on AMD GPUs">
+<meta name="twitter:description" content="Writing Super-Fast Matrix Multiplication with HIP, RGP, and ISA">
+<meta name="twitter:image" content="https://seb-v.github.io/assets/images/twitter.jpg">
+
+<!-- Meta Tags Generated via https://www.opengraph.xyz -->
+
+<html lang="{{ page.lang | default: site.lang | default: "en" }}">
+
+
+  {%- include head.html -%}
+
+  <body>
+
+    {%- include header.html -%}
+
+    <main class="page-content" aria-label="Content">
+      <link rel="stylesheet" href="{{ '/assets/css/style.css' | relative_url }}">
+      <div class="wrapper">
+        {{ content }}
+      </div>
+    </main>
+
+    {%- include footer.html -%}
+
+  </body>
+
+</html>

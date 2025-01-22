@@ -1,0 +1,48 @@
+.small-table {
+    font-size: 16px;  /* Adjust text size */
+    width: 70%;       /* Make the table narrower */
+    margin: auto;     /* Center the table */
+    border-collapse: collapse;
+}
+
+.small-table th, .small-table td {
+    padding: 5px;
+    border: 1px solid black;
+    text-align: center;  
+  vertical-align: middle;
+}
+
+.legend {
+    font-size: 0.90em;  /* Adjust size as needed */
+    font-style: italic;
+}
+.yellow { background-color: lightyellow; }
+  .red { background-color: lightpink; }
+  .orange { background-color: #FFD580; }
+  .blue { background-color: lightskyblue;  }
+  .green { background-color: lightgreen; }
+/* Blue for ds_load */
+.highlight .kc{
+    color: rgba(0, 120, 16, 0.952) !important;
+  }
+  
+  /* Red for s_waitcnt */
+  .highlight .kr {
+    color: red !important;
+  }
+  
+  /* global loads */
+  .highlight .nc {
+    color: purple !important;
+  }
+  
+  /* Numbers in purple */
+  .rouge .m {
+    color: purple !important;
+  }
+  
+  /* Comments in grey */
+  .rouge .c {
+    color: grey !important;
+  }
+  
