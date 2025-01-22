@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Deep Dive into Matrix Optimization on AMD GPUs: Writing Super-Fast Matrix Multiplication with HIP, RGP, and ISA"
+title:  "Beating rocBLAS: 60% Faster Matrix Multiplication on AMD RDNA3 GPUs"
 date:   2025-01-20 10:55:53 +0100
 categories: optimization update
 ---
