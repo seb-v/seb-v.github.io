@@ -421,7 +421,7 @@ The pseudo code for our new kernel:
                   For j from 0 to TN:
                      x = idX * TN + j;
                      y = idY * TM + i;
-                     C_regs[x][y] = A_col[y] * B_row[x]
+                     C_regs[y][x] = A_col[y] * B_row[x]
 
         Syncthreads
         Increment kId by BK
@@ -431,7 +431,7 @@ The pseudo code for our new kernel:
 
 
 
-The performance for this kernel is 6.03 ms (22777 GFlops/s), 5 times faster than our previous kernel !
+The performance for this kernel is **6.03 ms (22777 GFlops/s)**, 5 times faster than our previous kernel !
 
 | Kernel # | Description                       | Time (ms) | Performance (GFLOPS) | Relative Performance to rocBLAS |
 |----------|-----------------------------------|-----------|-----------------------|--------------------------|
@@ -524,7 +524,7 @@ If we update our pseudo code, we now have :
                   For j from 0 to TN:
                      x = idX * TN + j;
                      y = idY * TM + i;
-                     C_regs[x][y] = A_col[y] * B_row[x]
+                     C_regs[y][x] = A_col[y] * B_row[x]
 
         Syncthreads
         Save A_TMP and B_TMP to As and Bs
