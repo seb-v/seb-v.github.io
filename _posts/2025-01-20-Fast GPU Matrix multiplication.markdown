@@ -48,7 +48,7 @@ where $$C$$ is the resulting matrix of size $$M,N$$.
 
 
 
-For each output value of matrix C, we compute the dot product between the columns of matrix A and the row of matrix B.
+For each output value of matrix C, we compute the dot product between the rows of matrix A and the columns of matrix B.
 
 <div style="text-align: center;">
   <img src="/assets/images/graph1.jpg" alt="Alt text" />
@@ -157,7 +157,7 @@ As discussed before, I used `rocblas_sgemm` function with `alpha` and `beta` set
 
 The performance for this kernel is **4.49 ms (30547 GFLOPs/s)**. This is clearly much better than our kernel 1 but still far from our theoritical 61.4 TFlops/s.
 
-By inspecting the ISA in RGP[^3], I couldn't find any dual issue instructions in the kernel (only `v_fmac_f32_e32`)
+By inspecting the ISA in RGP[^3], I couldn't find any dual issue instructions in the kernel (only `v_fmac_f32_e32`)[^4]
 
 [^3]:[Radeon Graphic Profiler](https://gpuopen.com/rgp/) is the recommended profiler on Windows
 
@@ -166,11 +166,12 @@ By inspecting the ISA in RGP[^3], I couldn't find any dual issue instructions in
   <p class="legend">Figure 5: extract of rocBLAS ISA code</p>
 </div>
 
-This is very surprising as this essentially mean one of the VALU unit is sitting there doing nothing.
-
-After exploring the [ROCBlas repo](https://github.com/ROCm/rocBLAS), it looks like rocBLAS uses a project called [Tensile](https://ieeexplore.ieee.org/document/8425532) to generate highly optimized GEMM codes for AMD GPU.
+This is very surprising as this essentially means one of the VALU unit is sitting there doing nothing.
 
 Considering this, the VALU utilization of this kernel is pretty impressive and almost 100 %. However, it’s really surprising we can’t exploit these dual issue instructions properly. I’ll come to that later.
+
+[^4]: I didn't spend much time analysing how rocBLAS works but after exploring the [ROCBlas repo](https://github.com/ROCm/rocBLAS), it looks like rocBLAS uses a project called [Tensile](https://ieeexplore.ieee.org/document/8425532) to generate highly optimized GEMM codes for AMD GPU.
+
 
 
 # Kernel 2: LDS Tiling
@@ -274,10 +275,7 @@ __global__ void kernel2_lds(const float *A, const float *B, float *C, int N)
 `__syncthreads();` is required here to ensure that all threads in the workgroup can see the data loaded into the LDS and to synchronize before any updates are made to the data.
 
 We also ensure that the contents of both matrices A and B are loaded into the LDS by rows rather than columns to avoid uncoalesced memory accesses.
-
-Device memory is accessed through 32-, 64-, or 128-byte transactions, which must be naturally aligned. Maximizing memory throughput requires coalescing memory accesses across threads within a wave to minimize the number of transactions [^4]. If we were to read by columns, each thread in a wave would access a non-contiguous memory region, resulting in multiple separate transactions and reduced efficiency.
-
-[^4]: [ROCm performance guidelines](https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/performance_guidelines.html#device-memory-access)
+Indeed, if we were to read by columns, each thread in a wave would access a non-contiguous memory region, resulting in multiple separate transactions and reduced efficiency as shown in the 2 diagrams below.
 
 <div style="text-align: center;">
   <img src="/assets/images/graph5.jpg" alt="Alt text" width="400" />
@@ -288,6 +286,9 @@ Device memory is accessed through 32-, 64-, or 128-byte transactions, which must
   <p class="legend">Figure 8: non coalesced loads for matrix A. Multiple 32 bytes memory transactions for a single wave</p>
 </div>
 
+From the ISA guide, *device memory is accessed through 32-, 64-, or 128-byte transactions, which must be naturally aligned. Maximizing memory throughput requires coalescing memory accesses across threads within a wave to minimize the number of transactions [^5].*
+
+[^5]: [ROCm performance guidelines](https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/performance_guidelines.html#device-memory-access)
 The performance for this kernel is **34.2 ms (4017 GFlops/s)**. 4 times faster than our naive kernel !
 
 | Kernel # | Description                       | Time (ms) | Performance (GFLOPS) | Relative Performance to rocBLAS |
@@ -316,7 +317,7 @@ If we look at the ISA in the instruction timing tab, we see a couple of interest
 </div>
 
 To understand what is happening, we need to quickly explain how SIMD scheduling works. During each clock cycle, the SIMD selects an instruction from a pool of wave to issue. A SIMD can manage up to 16 wavefronts in parallel. When we refer to occupancy, we are actually talking about the ratio of active wave to the theoretical maximum number of wave that a SIMD can support.
-The more active wavefronts there are, the greater the likelihood that the SIMD can switch between wave, increasing the chances of hiding latency within individual wavefronts.[^5] 
+The more active wavefronts there are, the greater the likelihood that the SIMD can switch between wave, increasing the chances of hiding latency within individual wavefronts.[^6] 
 
 
 If we go back to our case, we are likely having something like this :
@@ -331,7 +332,7 @@ Here, we have a high-occupancy kernel launching many waves in parallel, all cont
 One way to address this issue is by increasing the arithmetic intensity of our kernel, ensuring that the VALU operations per wave take longer than the LDS memory reads.
 
 
-[^5]: There is a great blogpost by Francois Guthmann [here](https://gpuopen.com/learn/occupancy-explained/) that goes into these details.
+[^6]: There is a great blogpost by Francois Guthmann [here](https://gpuopen.com/learn/occupancy-explained/) that goes into these details.
 
 # Kernel 3 : Register tiling
 
@@ -483,7 +484,7 @@ With our current implementation, every wave must wait for global memory and then
 
 <div style="text-align: center;">
   <img src="/assets/images/graph15.jpg" alt="Alt text" />
-  <p class="legend">Figure 17 : several wave waiting for GMEM loads</p>
+  <p class="legend">Figure 17 : several waves waiting for GMEM loads</p>
 </div>
 
 One way to mitigate this is by using double buffering. We could allocate twice the memory and perform reads and writes to the LDS in parallel.
@@ -538,9 +539,9 @@ If we update our pseudo code, we now have :
 To my surprise, the performance for this kernel decreased to **14.3032 ms (9612.48 GFLOPS)**, more than 2 times slower than kernel 3 ! 
 
 Our double buffering algorithm utilizes more registers and reduces occupancy.
-After inspecting the ISA in RGP, we see that the HIP compiler attempts to keep register usage low by using scratch memory instead—which is detrimental to performance[^6].
+After inspecting the ISA in RGP, we see that the HIP compiler attempts to keep register usage low by using scratch memory instead—which is detrimental to performance[^7].
 
-[^6]: According to the RDNA3 ISA programming guide, the Scratch memory is similar to the global memory but instructions access a private (per-thread) memory space 
+[^7]: According to the RDNA3 ISA programming guide, the Scratch memory is similar to the global memory but instructions access a private (per-thread) memory space 
 
 <div style="text-align: center;">
   <img src="/assets/images/graph16.jpg" alt="Alt text" />
@@ -564,6 +565,7 @@ Full kernel source code can be found [here](https://github.com/seb-v/fp32_sgemm_
 | **Kernel 4** | **GMEM Double buffer**                | **5.3772**    | **25559.6**              | **83.7%**                    |
 {:.small-table}
 
+<br>
 
 VALU utilization has increased from 43 % to 52 %. 
 
@@ -601,7 +603,7 @@ So, if threads within a wave access the same bank, the memory transactions will 
 
 Our current kernel reads the content of matrix A rows by rows to avoid uncoalesced memory loads. Given we then operates on columns of matrix A, we transpose matrix A into matrix As so that each line of As correspond to a tile column of A.
 
-Now, if we look at how we look at how this owkr is mapped to waves, we see that we essentially write 8 times to 4 consecutives banks within each wave. One way to fix this is to add a padding of 4 elements to our LDS matrix As.
+Now, if we look at how this work is mapped to waves, we see that we essentially write 8 times to 4 consecutive banks within each wave. One way to fix this is to add a padding of 4 elements to our LDS matrix, As.
 
 {% highlight cuda %}
 __shared__ float As[BK][BM+4]; // 4 padding to avoid bank conflicts
@@ -642,12 +644,12 @@ To mitigate this, we can try these 2 things :
 - enable CU mode
 - increase our arithmetic intensity again to trade LDS reads vs GMEM reads
 
-According the RDNA3 programming guide, the LDS can operate on 2 distincts mode : WGP Mode and CU mode. HIP use by default WGP mode.
+According the RDNA3 programming guide, the LDS can operate on 2 distincts mode : WGP Mode and CU mode. HIP usse by default WGP mode.
 In WGP mode, the LDS is one large contiguous memory that all waves on the WGP can access meaning we are more likely to get congestion on the LDS.
 In CU mode,  the LDS is effectively split into a separate upper and lower LDS, each serving two SIMD32’s. Waves are allocated LDS space within the half of LDS which is associated with the SIMD the wave is running on.
-By enabling the CU mode, we should reduce the probability of wave contending for the LDS[^7]
+By enabling the CU mode, we should reduce the probability of wave contending for the LDS[^8]
 
-[^7]:To enable cumode, just add `-mcumode` option when building with hipcc.
+[^8]:To enable cumode, just add `-mcumode` option when building with hipcc.
 
 Second thing we can try is to increase our Thread tile to 16x8 instead of 8x8. This will improve the computation-to-data-read ratio. It should still fit within the 256 VGPR budget we have for the kernel and reduce our bandwidth requirements to **10.3 TBytes/s**
 
@@ -906,7 +908,7 @@ For the sake of simplicity, I will only represent the algorithm on a 8x4 tile fr
 
 *The cell number represents the instruction index.*
 
-We can see that we have instructions using multiple times the same banks. This is something we wanted to avoid. One way to get rid of this is to store A and B on a set of non-overlapping bank. For example B only on bank 0-1 and A on bank 2-3. The issue with this is that we won't be able to use ds_load_b128 instruction anymore as they target a 4 consecutive VGPRs. So instead of having 6 ds_load_b128 instructions like we have now, we will have 12 ds_load_b64 instead. If the performance uplift from our change is good enough, it shouldn't matter.
+We see it is perfectly doable to only use dual issue instructions however some of them are using multiple times the same banks. This is something we wanted to avoid. One way to get rid of this is to store A and B on a set of non-overlapping banks. For example B only on bank 0-1 and A on bank 2-3. The issue with this is that we won't be able to use `ds_load_b128` instruction anymore as they target a 4 consecutive VGPRs. So instead of having 6 `ds_load_b128` instructions like we have now, we will have 12 `ds_load_b64` instead. If the performance uplift from our change is good enough, it shouldn't matter.
 
 
 <div style="text-align: center;">
@@ -914,7 +916,7 @@ We can see that we have instructions using multiple times the same banks. This i
   <p class="legend">Figure 32 : separate banks between A and B</p>
 </div>
 
-All green ! However we look at the cache use and the read pattern, we have this :
+All green ! However if we look at the cache use and the read pattern, we have this :
 
 <div style="text-align: center;">
   <img src="/assets/images/graph30.jpg" alt="Alt text" width="400"/>
@@ -1151,7 +1153,7 @@ $$\large[2, 117], [120, 124], [126, 129], [131,133]$$
 
 ### VGPR redistribution
 
-It turns out that the VGPR allocation for C_reg is already close to what we need. We just need to add an extra bank 2 VGPR to ensure that all 128 VGPRs are allocated sequentially across banks 1-4.
+It turns out that the VGPR allocation for C_reg is already close to what we need. We just need to add an extra bank 2 VGPR to ensure that all 128 VGPRs are allocated sequentially across banks 0-3.
 
 This is good news, as it allows us to maintain compatibility with the initialization code for C_reg (setting all values to 0.0).
 
@@ -1167,7 +1169,7 @@ New allocation for A_col and B_row :
 
 ### Re-write LDS loads
 
-Our new code loading A :
+Our new code for loading A_col from As:
 
 ```isa
 ;A on bank 2-3
@@ -1177,7 +1179,7 @@ ds_load_b64 v[194:195], v183 offset: 64
 ds_load_b64 v[198:199], v183 offset: 72
 ```
 
-Loading B:
+Loading B_row from Bs:
 
 ```isa
 ;B on bank 0-1
@@ -1190,7 +1192,7 @@ ds_load_b64 v[204:205], v202 offset: 264
 ds_load_b64 v[208:209], v202 offset: 384
 ds_load_b64 v[212:213], v202 offset: 392 
 ```
-v183 and v202 are the new VGPR holding the addresses of A and B in the LDS memory.
+v183 and v202 are the new VGPRs holding the addresses of A and B in the LDS memory.
 
 ### Re-write dual_fmas
 
@@ -1388,7 +1390,7 @@ The instruction timing starts to look very good as well :
 
 So why aren't we faster ?
 
-If we look at the total latency clk in RGP, our biggest offender is the wait on the barrier. The s_waitnt just before is the wait on the global memory loads. 
+If we look at the total latency clk in RGP, our biggest offender is the wait on the barrier. The s_waitcnt just before is the wait on the global memory loads. 
 
 <div style="text-align: center;">
   <img src="/assets/images/graph37.jpg" alt="Alt text" >
@@ -1402,7 +1404,7 @@ We can't eliminate the barrier since we need to synchronize the threads before w
   <img src="/assets/images/graph38.jpg" alt="Alt text" >
   <p class="legend">Figure 40 : GMEM loads</p>
 </div>
-I didn't notice it before but even though latency is partly hidden, cumulated latency for a single load is around 1.3 Millions clks. Given that we do 16 different loads (8 for each matrix), that's 48 millions clks latency here !
+I didn't notice it before but even though latency is partly hidden, cumulated latency for a single load is around 1.3 Millions clks. Given that we do 16 different loads (8 for each matrix), that's 20 millions clks latency here !
 
 Let's see how we can improve this in the next kernel.
 
@@ -1410,7 +1412,7 @@ Let's see how we can improve this in the next kernel.
 # Kernel 8 : Batched GMEM loads
 
 
-Ok, let's start looking at what HIP has generated for us (I have remove s_delay_alu for better readability)
+Ok, let's start looking at what HIP has generated for us (I have removed `s_delay_alu` instructions for better readability)
 
 ```isa
 v_add_nc_u32_e32 v169, s4, v168
@@ -1429,7 +1431,7 @@ global_load_b32 v169, v[171:172], off
 ```
 
 Here s[10:11] hold the address of matrix B. For each each global_load_b32, the compiler computes the read offset using VPGRs from the previous iteration (v170 and v171 here). This is not ideal for a couple of reasons :
- - Every global_load requires a VALU operation to complete first. VALU that won't be used by other wave doing FMA operations.
+ - Every global_load requires a VALU operation to complete first. VALU that won't be used by other waves doing FMA operations.
  - Dependencies between global_load operations introduce unnecessary latency
  - Spending too many cycles in the GMEM state increases the likelihood of multiple waves on the same SIMD being in that state simultaneously, effectively reducing VALU work.
 
@@ -1453,16 +1455,14 @@ v214 is now a offset in bytes. s[10:11] a 64bit address in memory.
 
 So we could pre-compute once all the needed addresses for the 16 loads and just increment once the offset in the loop. That would require an additional 16*2 SGPRs and 2 VGPRs to handle the offset.
 
-
-
-
-
-Let's compute the needed base addresses. Useful parameters:
+After inspecting the ISA, it looks like :
  - s[0:1] contains the address of the kernel parameters.
  - s14 & s15 contains the blockIdx
  - v0 is threadIdx.x
- 
-We load the first 128 bytes to get matrix A and B addresses into s[20:21] and s[22:23]:
+
+That's all we need to compute the needed base addresses.
+
+First, we load the first 128 bytes to get matrix A and B addresses into s[20:21] and s[22:23]:
 
 ```isa
 s_load_b128 s[20:23], s[0:1], 0x0 ; Matrix A and B 
@@ -1603,7 +1603,7 @@ Full kernel source code can be found [here](https://github.com/seb-v/fp32_sgemm_
 
 # Conclusion
 
-This has been an exciting journey. What started as a simple experiment to try out HIP on Windows turned into a deep dive into the hardware details of RDNA3. My biggest inspiration for this blog was Simon Boehm’s technical post[^8] on matrix multiplication in CUDA—an incredibly well-written piece that clearly influenced Kernel 3.
+This has been an exciting journey. What started as a simple experiment to try out HIP on Windows turned into a deep dive into the hardware details of RDNA3. My biggest inspiration for this blog was Simon Boehm’s technical post[^9] on matrix multiplication in CUDA—an incredibly well-written piece that clearly influenced Kernel 3.
 
 HIP tooling on Windows is quite limited. For instance, RGP does not display bank conflicts by default. However, with enough practice, it becomes possible to analyze most performance bottlenecks using the instruction timing view.
 
@@ -1611,7 +1611,7 @@ Even though the performance results are impressive—outperforming rocBLAS by 60
 
 That being said, the goal of this personal project was to push performance to the limit without worrying about maintainability or flexibility. While matrix multiplication can be implemented in just a few lines of code, writing an optimized implementation is incredibly challenging. We achieved a 50x speedup between the naive kernel and our best kernel, which, in my experience, would not have been possible using only HIP C++. This highlights the value of projects like OpenAI's Triton, which I find particularly interesting and worth exploring in the future.
 
-Although reaching 50 TFLOP/s is a solid achievement, we are still not fully VALU-bound, meaning there’s likely more performance left on the table. One technique I haven't tested yet is LDS double buffering, which could eliminate one of the barriers and potentially improve the distribution of LDS instructions across the SIMD.
+Although reaching almost 50 TFLOP/s is a solid achievement, we are still not fully VALU-bound, meaning there’s likely more performance left on the table. One technique I haven't tested yet is LDS double buffering, which could eliminate one of the barriers and potentially improve the distribution of LDS instructions across the SIMD.
 
 Finally, I want to thank Francois Guthmann for our brainstorming session on LDS optimization, which inspired the approach used in Kernel 4.
 
@@ -1619,6 +1619,6 @@ This project has been both fun and insightful, and I look forward to investigati
 
 All the code for the 8 kernels can be found on this github [here](https://github.com/seb-v/fp32_sgemm_amd)
 
-[^8]:[How to Optimize a CUDA Matmul Kernel for cuBLAS-like Performance: a Worklog](https://siboehm.com/articles/22/CUDA-MMM)
+[^9]:[How to Optimize a CUDA Matmul Kernel for cuBLAS-like Performance: a Worklog](https://siboehm.com/articles/22/CUDA-MMM)
 
 ## References 
