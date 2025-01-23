@@ -9,7 +9,7 @@ categories: optimization update
 
 Hi everyone ! 
 
-In this post, I will share with you all the steps to write an optimized FP32 matrix multiplication on AMD GPU outperforming rocBLAS by 60%. I will cover some basics and explain all the optimizations I have implemented. This will be done in a iterative way in 8 differents Kernels. 
+In this post, I will share with you all the steps to write an optimized FP32 matrix multiplication on AMD RDNA3 GPU outperforming rocBLAS by 60%. I will cover some basics and explain all the optimizations I have implemented. This will be done in a iterative way in 8 differents Kernels. 
 
 <div style="text-align: center;">
   <img src="/assets/images/graph0.jpg" alt="Alt text" />
@@ -430,6 +430,7 @@ The pseudo code for our new kernel:
 {% endhighlight %}
 
 
+Full kernel source code can be found [here](https://github.com/seb-v/fp32_sgemm_amd/blob/main/src/kernel3_registers.cpp)
 
 The performance for this kernel is **6.03 ms (22777 GFlops/s)**, 5 times faster than our previous kernel !
 
@@ -552,6 +553,8 @@ Unfortunately, we cannot directly set the maximum number of registers per kernel
 
 With this change, the performance is back to normal :  **5.37 ms (25559.6 GFLOP/s)**.
 
+Full kernel source code can be found [here](https://github.com/seb-v/fp32_sgemm_amd/blob/main/src/kernel4_gmem_df.cpp)
+
 | Kernel # | Description                       | Time (ms) | Performance (GFLOPS) | Relative Performance to rocBLAS |
 |----------|-----------------------------------|-----------|-----------------------|--------------------------|
 | Kernel 0 | rocBLAS                           | 4.4992    | 30547.4              | 100.0 %                   |
@@ -577,7 +580,6 @@ We can now go back to our LDS loads in the inner loop which have become the new 
   <p class="legend">Figure 21 : latency on LDS loads</p>
 </div>
 
-Full kernel source code can be found [here]()
 
 # Kernel 5 : Optimize LDS usage
 
@@ -650,6 +652,8 @@ By enabling the CU mode, we should reduce the probability of wave contending for
 Second thing we can try is to increase our Thread tile to 16x8 instead of 8x8. This will improve the computation-to-data-read ratio. It should still fit within the 256 VGPR budget we have for the kernel and reduce our bandwidth requirements to **10.3 TBytes/s**
 
 With all these changes, the performance for this kernel is now **4.09 ms (33526 GFLOP/s)**. That's better than rocBLAS !
+
+Full kernel source code can be found [here](https://github.com/seb-v/fp32_sgemm_amd/blob/main/src/kernel5_lds_optim.cpp)
 
 | Kernel # | Description                       | Time (ms) | Performance (GFLOPS) | Relative Performance to rocBLAS |
 |----------|-----------------------------------|-----------|-----------------------|--------------------------|
@@ -1292,6 +1296,8 @@ Our kernel now uses 214 VGPRs instead of 208. We need to modify this in the .s f
 .vgpr_count:     214
 ```
 
+Full kernel source code can be found [here](https://github.com/seb-v/fp32_sgemm_amd/blob/main/src/kernel6_valu_optim.s)
+
 Performance for this kernel is **3.63 ms (37791.2 GFLOP/s)**. 
 
 | Kernel # | Description                       | Time (ms) | Performance (GFLOPS) | Relative Performance to rocBLAS |
@@ -1344,6 +1350,8 @@ Duplicate 8 times our load and multiplication and make sure we increment the add
 v_add_nc_u32_e32 v183, 0x210, v183 ; B : 0x210 = (128+4)*4
 v_add_nc_u32_e32 v202, 0x200, v202 ; A : 0x200 = (128)*4
 ```
+
+Full kernel source code can be found [here](https://github.com/seb-v/fp32_sgemm_amd/blob/main/src/kernel7_unroll.s)
 
 The performance for this kernel is **3.33 ms (41255.6 GFLOPS/s)**. 
 
@@ -1572,6 +1580,7 @@ By splitting these loads into chunks of 2, we reduce the likelihood of overlap b
 
 Performance for this kernel is **2.80 ms (49047 GFLOPS/s)**. That's now 60% faster than our reference rocBLAS version and almost 50 times faster than our naive approach !
 
+Full kernel source code can be found [here](https://github.com/seb-v/fp32_sgemm_amd/blob/main/src/kernel8_batched_gmem.s)
 
 | Kernel # | Description                       | Time (ms) | Performance (GFLOPS) | Relative Performance to rocBLAS |
 |----------|-----------------------------------|-----------|-----------------------|--------------------------|
@@ -1604,11 +1613,11 @@ That being said, the goal of this personal project was to push performance to th
 
 Although reaching 50 TFLOP/s is a solid achievement, we are still not fully VALU-bound, meaning there’s likely more performance left on the table. One technique I haven't tested yet is LDS double buffering, which could eliminate one of the barriers and potentially improve the distribution of LDS instructions across the SIMD.
 
-Finally, I want to thank  Francois Guthmann for our brainstorming session on LDS optimization, which inspired the approach used in Kernel 4.
+Finally, I want to thank Francois Guthmann for our brainstorming session on LDS optimization, which inspired the approach used in Kernel 4.
 
 This project has been both fun and insightful, and I look forward to investigating further optimizations in the future
 
-All the code for the 8 kernels can be found on this github repo : 
+All the code for the 8 kernels can be found on this github [here](https://github.com/seb-v/fp32_sgemm_amd)
 
 [^8]:[How to Optimize a CUDA Matmul Kernel for cuBLAS-like Performance: a Worklog](https://siboehm.com/articles/22/CUDA-MMM)
 
