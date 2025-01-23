@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Beating rocBLAS: 60% Faster Matrix Multiplication on AMD RDNA3 GPUs"
+title:  "Optimizing Matrix Multiplication on RDNA3: 50 TFlops and 60% Faster Than rocBLAS"
 date:   2025-01-20 10:55:53 +0100
 categories: optimization update
 ---
