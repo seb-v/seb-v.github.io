@@ -732,7 +732,7 @@ For example, I tried duplicating our dual_fmac instructions 32 times in the inne
   <p class="legend">Figure 27 : Fake kernel with 32x more VALU operations</p>
 </div>
 
-Next thing I tried is to launch a single workgroup and have a single wave running. It turns out these 2-3 clocks latency are still there meaning it must comes from the VPGR distribution of these dual_fmac instructions.
+Next thing I tried is to launch a single workgroup and have a single wave running. It turns out these 2-3 clocks latency are still there meaning it must comes from the VGPR distribution of these dual_fmac instructions.
 
 Ok, so let's take a closer look at these dual instructions and see if we can do something about it.
 Dual instructions are of that form :
@@ -783,10 +783,10 @@ v_dual_fmac_f32 v123, v139, v144 :: v_dual_fmac_f32 v114, v140, v143
 `FMAC Bank3, Bank3, Bank0 :: FMAC Bank2, Bank0, Bank3`
 
 Both instructions are reading the same banks (0 & 3). The way I see it (that’s not covered in the ISA guide AFAIK), 2 things could happen here  : 
-- at least one of the VPGRs was already present in the cache meaning the instruction would have to fetch at most one value from the register file
+- at least one of the VGPRs was already present in the cache meaning the instruction would have to fetch at most one value from the register file
 - the VALU has to access 2 VGPRs on the same bank leading to a bank conflict and some stall latency.
 
-On top of that, we also need to take into account the VPGRs we are writing to even though we write on the next cycle.
+On top of that, we also need to take into account the VGPRs we are writing to even though we write on the next cycle.
 
 So, even though we may have a valid VGPR distribution that successfully compiles, we could still encounter register bank conflicts, impacting performance.
 
@@ -892,7 +892,7 @@ Instead of spending too much time on this, I tried to design an implementation f
 
 The good news is that we can ignore alignment constraints on the output matrix C, given that the number of iterations in the inner loop is quite high. In other words, we can freely shuffle register allocations during the accumulation phase and reorder them only once before writing to memory. This effectively removes one constraint, as we no longer need to maintain a direct mapping between contiguous memory locations and contiguous registers. This might be the reason the HIP compiler was struggling to only use dual_fmac instructions (write of matrix C_reg to C by global_store_b128 requires 4 consecutive VGPRs)
 
-Since kernel 4, our inner loop consist of doing the multiplication between the 8 elements of a column of A and the 16 elements of a row of B. We can assume both A and B is contineously distributed on the 4 different VGPR banks. Something like this :
+Since kernel 4, our inner loop consist of doing the multiplication between the 8 elements of a column of A and the 16 elements of a row of B. We can assume both A and B is contiguously distributed on the 4 different VGPR banks. Something like this :
 
 <div style="text-align: center;">
   <img src="/assets/images/graph27.jpg" alt="Alt text" width="650"/>
@@ -1430,7 +1430,7 @@ v_add_co_ci_u32_e32 v172, vcc_lo, s11, v172, vcc_lo
 global_load_b32 v169, v[171:172], off
 ```
 
-Here s[10:11] hold the address of matrix B. For each each global_load_b32, the compiler computes the read offset using VPGRs from the previous iteration (v170 and v171 here). This is not ideal for a couple of reasons :
+Here s[10:11] hold the address of matrix B. For each each global_load_b32, the compiler computes the read offset using VGPRs from the previous iteration (v170 and v171 here). This is not ideal for a couple of reasons :
  - Every global_load requires a VALU operation to complete first. VALU that won't be used by other waves doing FMA operations.
  - Dependencies between global_load operations introduce unnecessary latency
  - Spending too many cycles in the GMEM state increases the likelihood of multiple waves on the same SIMD being in that state simultaneously, effectively reducing VALU work.
@@ -1446,7 +1446,7 @@ global_load_b32 v171, v[175:176], off
 
 However, this would require us to maintain additional VGPRs and potentially use VALU instructions to update the memory addresses as well. Given that we are already using 214 VGPRs, this is clearly not feasible.
 
-That said, we still have a fairly good SPGR budget, and according to the RDNA3 programming guide, global_load instructions can use SPGR for base addressing.
+That said, we still have a fairly good SGPR budget, and according to the RDNA3 programming guide, global_load instructions can use SGPR for base addressing.
 
 ```isa
 global_load_b32 v171, v214, s[10:11]
@@ -1552,7 +1552,7 @@ global_load_b32	 v181, v215, s[52:53]
 global_load_b32	 v182, v215, s[54:55]
 ```
 
-Our modified kernel now uses 55 SPGRs instead of 18 and 216 VPGRs instead of 214.
+Our modified kernel now uses 55 SGPRs instead of 18 and 216 VGPRs instead of 214.
 If we take another RGP capture, we can see that this is much better, with less than 2 million clock cycles of latency for the entire process now
 
 <div style="text-align: center;">
