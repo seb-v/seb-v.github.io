@@ -793,23 +793,22 @@ So, even though we may have a valid VGPR distribution that successfully compiles
 Let’s take a look at what the HIP compiler has generated for us.
 
 ```isa
-v_dual_fmac_f32 v3, v186, v185 :: v_dual_fmac_f32 v4, v187, v184
-v_dual_fmac_f32 v9, v186, v188 :: v_dual_fmac_f32 v6, v187, v189
-v_dual_fmac_f32 v7, v187, v188 :: v_dual_fmac_f32 v8, v186, v189
-v_dual_fmac_f32 v13, v190, v188 :: v_dual_fmac_f32 v10, v191, v189
-v_dual_fmac_f32 v11, v190, v189 :: v_dual_fmac_f32 v12, v191, v188
-v_dual_fmac_f32 v17, v190, v184 :: v_dual_fmac_f32 v14, v191, v185
-v_dual_fmac_f32 v15, v191, v184 :: v_dual_fmac_f32 v16, v190, v185
-v_dual_fmac_f32 v21, v194, v184 :: v_dual_fmac_f32 v18, v195, v185
-v_dual_fmac_f32 v19, v194, v185 :: v_dual_fmac_f32 v20, v195, v184
-v_dual_fmac_f32 v25, v194, v188 :: v_dual_fmac_f32 v22, v195, v189
-v_dual_fmac_f32 v23, v195, v188 :: v_dual_fmac_f32 v24, v194, v189
-v_dual_fmac_f32 v29, v198, v188 :: v_dual_fmac_f32 v26, v199, v189
-v_dual_fmac_f32 v27, v198, v189 :: v_dual_fmac_f32 v28, v199, v188
-v_dual_fmac_f32 v33, v198, v192 :: v_dual_fmac_f32 v30, v199, v193
-v_dual_fmac_f32 v31, v199, v192 :: v_dual_fmac_f32 v32, v198, v193
-v_dual_fmac_f32 v37, v186, v192 :: v_dual_fmac_f32 v34, v187, v193
-v_dual_fmac_f32 v35, v186, v193 :: v_dual_fmac_f32 v36, v187, v192
+v_dual_fmac_f32 v127,v138,v144 :: v_dual_fmac_f32	v122, v139, v143
+v_dual_fmac_f32 v128,v138,v145 :: v_dual_fmac_f32	v121, v139, v142
+v_dual_fmac_f32 v123,v139,v144 :: v_dual_fmac_f32	v114, v140, v143
+v_dual_fmac_f32 v124,v139,v145 :: v_dual_fmac_f32	v113, v140, v142
+v_dual_fmac_f32 v115,v140,v144 :: v_dual_fmac_f32	v110, v141, v143
+v_dual_fmac_f32 v116,v140,v145 :: v_dual_fmac_f32	v109, v141, v142
+v_dual_fmac_f32 v111,v141,v144 :: v_dual_fmac_f32	v90,  v138, v147
+v_dual_fmac_f32 v112,v141,v145 :: v_dual_fmac_f32	v89,  v138, v146
+v_dual_fmac_f32 v91	,v138,v148 :: v_dual_fmac_f32	v94,  v139, v147
+v_dual_fmac_f32 v92	,v138,v149 :: v_dual_fmac_f32	v93,  v139, v146
+v_dual_fmac_f32 v95	,v139,v148 :: v_dual_fmac_f32	v98,  v140, v147
+v_dual_fmac_f32 v96	,v139,v149 :: v_dual_fmac_f32	v97,  v140, v146
+v_dual_fmac_f32 v99	,v140,v148 :: v_dual_fmac_f32	v118, v141, v147
+v_dual_fmac_f32 v100,v140,v149 :: v_dual_fmac_f32	v117, v141, v146
+v_dual_fmac_f32 v119,v141,v148 :: v_dual_fmac_f32	v70,  v138, v151
+v_dual_fmac_f32 v120,v141,v149 :: v_dual_fmac_f32	v69,  v138, v150
 ;...
 ```
 
@@ -876,6 +875,8 @@ If we analyse both the banks and the cache state for the first instructions, we 
 - R{k} means we read from bank k
 - W{k} means we write to bank k
 - Cache{k} means we read from one of the cache associated with bank k
+I assumed that writes are performed with a 1-clock delay, which is why the first row of DSTX and DSTY is empty.
+
 
 
 We can see that the compiler does a great job of reusing the cache, as we only read a small amount of data. However, the access pattern is not consistent over time, and we often use the same bank more than twice.
