@@ -793,22 +793,22 @@ So, even though we may have a valid VGPR distribution that successfully compiles
 Let’s take a look at what the HIP compiler has generated for us.
 
 ```isa
-v_dual_fmac_f32 v127,v138,v144 :: v_dual_fmac_f32	v122, v139, v143
-v_dual_fmac_f32 v128,v138,v145 :: v_dual_fmac_f32	v121, v139, v142
-v_dual_fmac_f32 v123,v139,v144 :: v_dual_fmac_f32	v114, v140, v143
-v_dual_fmac_f32 v124,v139,v145 :: v_dual_fmac_f32	v113, v140, v142
-v_dual_fmac_f32 v115,v140,v144 :: v_dual_fmac_f32	v110, v141, v143
-v_dual_fmac_f32 v116,v140,v145 :: v_dual_fmac_f32	v109, v141, v142
-v_dual_fmac_f32 v111,v141,v144 :: v_dual_fmac_f32	v90,  v138, v147
-v_dual_fmac_f32 v112,v141,v145 :: v_dual_fmac_f32	v89,  v138, v146
-v_dual_fmac_f32 v91	,v138,v148 :: v_dual_fmac_f32	v94,  v139, v147
-v_dual_fmac_f32 v92	,v138,v149 :: v_dual_fmac_f32	v93,  v139, v146
-v_dual_fmac_f32 v95	,v139,v148 :: v_dual_fmac_f32	v98,  v140, v147
-v_dual_fmac_f32 v96	,v139,v149 :: v_dual_fmac_f32	v97,  v140, v146
-v_dual_fmac_f32 v99	,v140,v148 :: v_dual_fmac_f32	v118, v141, v147
-v_dual_fmac_f32 v100,v140,v149 :: v_dual_fmac_f32	v117, v141, v146
-v_dual_fmac_f32 v119,v141,v148 :: v_dual_fmac_f32	v70,  v138, v151
-v_dual_fmac_f32 v120,v141,v149 :: v_dual_fmac_f32	v69,  v138, v150
+v_dual_fmac_f32 v127, v138, v144 :: v_dual_fmac_f32	v122, v139, v143
+v_dual_fmac_f32 v128, v138, v145 :: v_dual_fmac_f32	v121, v139, v142
+v_dual_fmac_f32 v123, v139, v144 :: v_dual_fmac_f32	v114, v140, v143
+v_dual_fmac_f32 v124, v139, v145 :: v_dual_fmac_f32	v113, v140, v142
+v_dual_fmac_f32 v115, v140, v144 :: v_dual_fmac_f32	v110, v141, v143
+v_dual_fmac_f32 v116, v140, v145 :: v_dual_fmac_f32	v109, v141, v142
+v_dual_fmac_f32 v111, v141, v144 :: v_dual_fmac_f32	v90, v138, v147
+v_dual_fmac_f32 v112, v141, v145 :: v_dual_fmac_f32	v89, v138, v146
+v_dual_fmac_f32 v91, v138, v148 :: v_dual_fmac_f32 v94, v139, v147
+v_dual_fmac_f32 v92, v138, v149 :: v_dual_fmac_f32 v93, v139, v146
+v_dual_fmac_f32 v95, v139, v148 :: v_dual_fmac_f32 v98, v140, v147
+v_dual_fmac_f32 v96, v139, v149 :: v_dual_fmac_f32 v97, v140, v146
+v_dual_fmac_f32 v99, v140, v148 :: v_dual_fmac_f32 v118, v141, v147
+v_dual_fmac_f32 v100, v140, v149 :: v_dual_fmac_f32	v117, v141, v146
+v_dual_fmac_f32 v119, v141, v148 :: v_dual_fmac_f32	v70, v138, v151
+v_dual_fmac_f32 v120, v141, v149 :: v_dual_fmac_f32	v69, v138, v150
 ;...
 ```
 
