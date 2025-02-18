@@ -721,7 +721,7 @@ hipcc -target amdgcn-amd-amdhsa -mcpu=gfx1100 -mcumode -c kernel_modified.s -o k
 ld.lld -shared kernel.o -o kernel.hsaco
 ```
 
-The `kernel.hsaco`file can then be loaded at runtime using the Module Management API if HIP.
+The `kernel.hsaco`file can then be loaded at runtime using the Module Management API of HIP.
 
 Direct control over the ISA is great for micro-benchmarking and makes it easier to instrument the code for performance assessment without worrying about unexpected compiler optimizations.
 
@@ -875,6 +875,7 @@ If we analyse both the banks and the cache state for the first instructions, we 
 - R{k} means we read from bank k
 - W{k} means we write to bank k
 - Cache{k} means we read from one of the cache associated with bank k
+
 I assumed that writes are performed with a 1-clock delay, which is why the first row of DSTX and DSTY is empty.
 
 
