@@ -752,16 +752,21 @@ There are a number of constrains in order to use these instructions. Namely:
 - Dest VGPRs: one must be even and the other odd
 - VSRCX1 and VSRCY1 must use different banks
 
-On top of that, the RDNA 3 programming guide tells us *there are 4 VGPR banks (indexed by SRC[1:0]), and each bank has a cache. Each cache has 3 read ports: one dedicated to SRC0, one dedicated to SRC1 and one for SRC2 . A cache can read all 3 of them at once, but it can’t read two SRC0’s at once (or SRC1/2).*
+On top of that, the RDNA 3 programming guide states :
+- *There are 4 VGPR banks (indexed by SRC[1:0]), and each bank has a cache*.
+- *Each cache has 3 read ports: one dedicated to SRC0, one dedicated to SRC1 and one for SRC2.*
+- *A cache can read all 3 of them at once, but it can’t read two SRC0’s at once (or SRC1/2).* 
+- *FMAC_F32 uses SRC2 as destination operand*
 
 <div style="text-align: center;">
-  <img src="/assets/images/graph25.jpg" alt="Alt text" width="600"/>
-  <p class="legend">Figure 28 : my visualization of register banks and dual instructions</p>
+  <img src="/assets/images/graph25.jpg" alt="Alt text" width="800"/>
+  <p class="legend">Figure 28 : my visualization of register banks and dual instructions. Example of an instruction using bank 0,1,2,3</p>
 </div>
 <div style="text-align: center;">
-  <img src="/assets/images/graph26.jpg" alt="Alt text" width="300"/>
-  <p class="legend">Figure 29 : SRCX and SRCY0 must use different banks</p>
+  <img src="/assets/images/graph26.jpg" alt="Alt text" width="350"/>
+  <p class="legend">Figure 29 : SRCX0 and SRCY0 must use different banks</p>
 </div>
+
 
 Bank number of register $$\large X$$ is given by $$\large X\%4$$
 
@@ -1623,4 +1628,7 @@ All the code for the 8 kernels can be found on this github [here](https://github
 
 [^9]:[How to Optimize a CUDA Matmul Kernel for cuBLAS-like Performance: a Worklog](https://siboehm.com/articles/22/CUDA-MMM)
 
+# Changelog
+
+**18/02/2024** : Updated Figures 28 and 29. Added missing SRC2 used by destination operand for FMAC_F32. Thanks to Aditya Atluri for pointing this out.
 ## References 
